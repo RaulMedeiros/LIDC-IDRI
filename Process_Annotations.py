@@ -69,7 +69,7 @@ def process_Annotations(src_Path,output_Path,roi_Shape,distMin):
 
     print("\nProcessed Exams: ",num_of_invalid_exams+num_of_valid_exams)
     print("Invalid Exams: ",num_of_invalid_exams)
-    print("Valid Exams: ",num_of_invalid_exams)
+    print("Valid Exams: ",num_of_valid_exams)
     print("Number Of Nodules: ",num_of_nodules_total)    
 
     return True
