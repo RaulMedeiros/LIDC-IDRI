@@ -5,48 +5,46 @@ import numpy as np
 import xml.etree.ElementTree as ET
 np.set_printoptions(threshold=np.nan)
 
-def isNotCloseToOthers(nodules_list,distMin):         
-    filtered_Nodules = []
-    for nodule in nodules_list:
-        isTooClose =[0]
-        pointA = np.array(nodule[0][-3:])
-        
-        for fnode in filtered_Nodules:
-            pointB = np.array(fnode[0][-3:])
-            
-            if (np.linalg.norm(pointA-pointB) < distMin):
-                isTooClose.append(1)
-                    
-        if (np.sum(isTooClose) == 0):
-            filtered_Nodules.append(nodule)
-            
-    return filtered_Nodules
-
-def mergeNodules(nodules_list,distMin, min_anotations = 0):      
+#def mergeNodules(nodules_list,distMin, min_anotations = 0):         
+#    filtered_Nodules = []
+#    for idxA, nodule_A in enumerate(nodules_list):
+#        
+#        distances = np.array([int(np.linalg.norm(np.array(nodule_A[0])-np.array(nodule_B[0]))) for nodule_B in nodules_list])        
+#        annotations2Merg = np.array([nodules_list[idxB] for idxB, dist in enumerate(distances) if dist <= distMin])
+#        
+#        if(len(annotations2Merg) < min_anotations ):
+#            print('nope')
+#            continue
+#        else:            
+#            #TODO: Del merged elements from nodules_list
+#            centroid = np.mean(annotations2Merg[:,0])
+#            malignancy = np.ceil(np.mean(annotations2Merg[:,1]))
+##            malignancy = round(np.median(annotations2Merg[:,1]), 3)
+#            filtered_Nodules.append([*centroid,malignancy,annotations2Merg[0,2]])
+#            
+##    print('before',np.array(filtered_Nodules))
+#    filtered_Nodules = set(map(tuple, filtered_Nodules))    
+##    print('\nfiltered_Nodules',np.array(filtered_Nodules))
+#
+#    return filtered_Nodules
     
-#    print('nodules_list',np.array(nodules_list))
+def mergeNodules2(nodules_list,distMin,ExamID):        
     filtered_Nodules = []
-    for idxA, nodule_A in enumerate(nodules_list):
-        
-        distances = np.array([int(np.linalg.norm(np.array(nodule_A[0])-np.array(nodule_B[0]))) for nodule_B in nodules_list])        
-        annotations2Merg = np.array([nodules_list[idxB] for idxB, dist in enumerate(distances) if dist <= distMin])         
-#        print(distances)
-        
-        if(len(annotations2Merg) < min_anotations ):
-            print('nope')
-            continue
-        else:            
-            #TODO: Del merged elements from nodules_list
-            centroid = np.mean(annotations2Merg[:,0])
-            malignancy = round(np.mean(annotations2Merg[:,1]), 3)
-            filtered_Nodules.append([*centroid,malignancy,annotations2Merg[0,2]])
-            
-#    print('before',np.array(filtered_Nodules))
-    filtered_Nodules = set(map(tuple, filtered_Nodules))    
-#    print('\nfiltered_Nodules',np.array(filtered_Nodules))
+    while(len(nodules_list) > 0):
+        nodule_A = nodules_list[0]
 
+        distances = np.array([int(np.linalg.norm(np.array(nodule_A[0:3])-np.array(nodule_B[0:3]))) for nodule_B in nodules_list])        
+        annotations2Merg = np.array([nodule_B for nodule_B, dist in zip(nodules_list,distances) if dist <= distMin],dtype=object)
+        idxs = np.array([idx for idx, dist in enumerate(distances) if dist <= distMin])
+
+        centroid = list(map(int,np.mean(annotations2Merg[:,0:3],axis=0)))
+        malignancy = np.int(np.median(annotations2Merg[:,3]))          
+        filtered_Nodules.append([*centroid,malignancy])
+        nodules_list = np.delete(nodules_list,idxs,axis=0)
+        
+    filtered_Nodules = np.array([fn+[ExamID] for fn in filtered_Nodules],dtype=object)
     return filtered_Nodules
-
+    
 #Validades the Path Folder identifying the folder with more images. 
 def validateFolderPath(pathFolder):
     # Calculates the number of files in each sub folder
@@ -137,22 +135,18 @@ def XMLReaderCentroidsExtractor(ExamPath,listOfIdxZ,distMin = 10):
                                 xC = ((max(xList)-min(xList))/2 )+min(xList)
                                 yC = ((max(yList)-min(yList))/2 )+min(yList)                       
                                 zC = listOfIdxZ.index(float(roi[0].text))            
-                                centroid = np.array([np.int(xC),np.int(yC),np.int(zC)])
-                                            
-                                roi_slices_list.append([centroid,malignancy,ExamPath[len(srcPath)+1:len(srcPath)+15]])                                                                                
+                                roi_slices_list.append([np.int(xC),np.int(yC),np.int(zC),malignancy])                                                                                
                             except:
                                 print('error',ExamPath)
                                 continue                  
-                    
+
                     # Selects only the central slice of the Nodule
                     listOfRoi_Unchecked.append(roi_slices_list[len(roi_slices_list)//2])
 #                    listOfRoi_Unchecked.extend(roi_slices_list)
-
             
         # CHECK IF SOME NODULE TO CLOSE DO THIS 
-#        listOfRoi.extend(isNotCloseToOthers(listOfRoi_Unchecked,distMin))
-        listOfRoi.extend(mergeNodules(listOfRoi_Unchecked,distMin))
-        
+#        listOfRoi.extend(mergeNodules(listOfRoi_Unchecked,distMin))
+        listOfRoi.extend(mergeNodules2(listOfRoi_Unchecked,distMin,ExamPath[len(srcPath)+1:len(srcPath)+15]))
     return listOfRoi
 
 
@@ -160,8 +154,7 @@ def computeROI(x,y,z,r):
     return np.array([int(z-r[0]),int(z+r[0]+1),
                     int(y-r[1]),int(y+r[1]+1),
                     int(x-r[2]),int(x+r[2]+1)])
-
-
+    
 # Extract List of Rois
 def extractNodules(examArr,NoduleCenter,roiRadius):
     roiShape = computeROI(*NoduleCenter,roiRadius)
@@ -172,7 +165,7 @@ def exportNodulesImgs(img,roi,roiRadius,outputPath,outputExtention,planes2print)
     centerPoint = str(roi[0:3])
     classID = str(roi[-2])
     ExamName = roi[-1]
-    malignancy = str(roi[3])
+    malignancy = str(int(roi[3]))
 #    print(centerPoint,classID,ExamName)
         
     imgName = ExamName+'_'+centerPoint+'_'+malignancy
@@ -192,9 +185,8 @@ def exportNodulesImgs(img,roi,roiRadius,outputPath,outputExtention,planes2print)
                                img[:,roiRadius[1]-1,:],
                                img[:,:,roiRadius[2]-1]]).T
 
-            
         for outExt in outputExtention:
-            path = outputPath +'/'+outExt+'/'+plane+'/'
+            path = outputPath +'/'+outExt+'/'+plane+'/'+malignancy+'/'
             os.makedirs(path, exist_ok=True)
                      
             if(outExt is 'npy'):
@@ -203,7 +195,11 @@ def exportNodulesImgs(img,roi,roiRadius,outputPath,outputExtention,planes2print)
                 np.savetxt(path+imgName+'.txt',OutImg,fmt='%s')
 
     return True
-
+    
+""" Extract all nodules from the 'srcPath' folder an place the 
+    result(Extracted Nodules) at 'outputPath' folder. 
+    planes2print specify wicth planes to extract from the volume
+    roiSize defines the shapes of the result images"""
 def extration_Folder(srcPath,outputPath,outputExtention,planes2print,roiSize):
     #Log Variables 
     cont=0
@@ -220,6 +216,7 @@ def extration_Folder(srcPath,outputPath,outputExtention,planes2print,roiSize):
         #Transforms the Exam into an Array ('Mat') 
         examArr,listOfIdxZ = exam2Mat(ExamPath)
         
+        #Check Shape of Exam
         if(examArr.shape[2] != 512 or examArr.shape[1] != 512 or examArr.shape[0] <=1):
             print(examArr.shape)
             continue
@@ -240,6 +237,8 @@ def extration_Folder(srcPath,outputPath,outputExtention,planes2print,roiSize):
             #Assert
             if(img.shape != (roiSize[0]*2, roiSize[1]*2, roiSize[2]*2)):
                 print("Error img shape in the wrong format,img.shape = ",img.shape)
+                #TODO: PERFORM ZERO-PADDING TO AVOID THIS ERROR
+                # (With padding be sure to don't change the reference XYZ)
                 continue
             
             #Export Nodule Images (txt or npt) 
@@ -249,13 +248,10 @@ def extration_Folder(srcPath,outputPath,outputExtention,planes2print,roiSize):
 
 # In[3]:
 
-srcPath = "D:/MESTRADO/Bases"
-outputPath = "D:/MESTRADO/Out_Folder/32/"
-
+srcPath = "/home/raul/PROJECTS/LIDC-IDRI/Src_Folder"
+outputPath = "/home/raul/PROJECTS/LIDC-IDRI/Out_Folder/Median16"
 outputExtention = ['npy'] # ['npy','txt']
-
 planes2print = ['Axial','Coronal','Sagittal','3Axis']
-# planes2print = ['Axial']
 
 roiRadius = [16,16,16]
                       
