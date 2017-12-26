@@ -141,7 +141,7 @@ def extration_Folder(src_Path,output_Path,compress_Exam,output_Annotation_Format
 
 def main():
     src_Path = "/home/raul/PROJECTS/LIDC-IDRI/Src_Folder"
-    output_Path = "/home/raul/PROJECTS/LIDC-IDRI/Src_Folder_PYTHON3/"
+    output_Path = "/home/raul/PROJECTS/LIDC-IDRI/Src_Folder_PYTHON/"
     compress_Exam = False
     output_Annotation_Format = 'npy'
     extration_Folder(src_Path,output_Path,compress_Exam,output_Annotation_Format)
